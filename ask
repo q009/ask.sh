@@ -1,7 +1,6 @@
 #!/bin/sh
 
 HOME_DIR="$HOME/.ask.sh"
-RESPONSE_FILE="$HOME_DIR/response.json"
 API_KEY_FILE="$HOME_DIR/api_key.txt"
 INSTRUCTIONS="You are an AI terminal assistant. Users will input simple questions and you will respond with short, precise answers and/or terminal commands. Responses should be suitable for a CLI environment, so they need to be brief, preferably single-line. Avoid any additional commentary or explanations unless explicitly asked."
 API_KEY=$(cat $API_KEY_FILE)
@@ -119,8 +118,6 @@ if [ -z "$QUERY" ] || [ $(echo "$QUERY" | wc -w) -lt 3 ] || [ ${#QUERY} -le 16 ]
     exit 1
 fi
 
-mkdir -p "$(dirname $RESPONSE_FILE)"
-
 INSTRUCTIONS="$INSTRUCTIONS\n\nUser is running on: $OS_NAME (kernel $OS_KERNEL)"
 
 # Escape QUERY for JSON
@@ -135,6 +132,8 @@ JSON_PAYLOAD=$(jq -Rn --arg prompt "$INSTRUCTIONS" --arg input "$QUERY" --arg ef
     }'
 )
 
+RESPONSE_FILE=$(mktemp /tmp/ask_sh_response.XXXXXX.json)
+
 printf "Thinking (%s reasoning)..." "$REASONING"
 
 curl https://api.openai.com/v1/responses \
@@ -146,3 +145,5 @@ curl https://api.openai.com/v1/responses \
 RESPONSE_TEXT=$(jq -r '.output[] | select(.type=="message") | .content[] | select(.type=="output_text").text' $RESPONSE_FILE)
 
 printf "\r%s\n" "$RESPONSE_TEXT"
+
+rm -f $RESPONSE_FILE
