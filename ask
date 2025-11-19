@@ -135,8 +135,6 @@ JSON_PAYLOAD=$(jq -Rn --arg prompt "$INSTRUCTIONS" --arg input "$QUERY" --arg ef
     }'
 )
 
-echo $JSON_PAYLOAD
-
 curl https://api.openai.com/v1/responses \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $API_KEY" \
