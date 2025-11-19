@@ -143,7 +143,8 @@ JSON_PAYLOAD=$(jq -Rn --arg prompt "$INSTRUCTIONS" --arg input "$QUERY" --arg ef
 RESPONSE_FILE=$(mktemp /tmp/ask_sh_response.XXXXXX.json)
 trap 'rm -f "$RESPONSE_FILE"' EXIT
 
-printf "Thinking (%s reasoning)..." "$REASONING"
+STATUS_MESSAGE="Thinking ($REASONING reasoning)..."
+printf "%s" "$STATUS_MESSAGE"
 
 curl https://api.openai.com/v1/responses \
     -H "Content-Type: application/json" \
@@ -153,6 +154,8 @@ curl https://api.openai.com/v1/responses \
 
 RESPONSE_TEXT=$(jq -r '.output[] | select(.type=="message") | .content[] | select(.type=="output_text").text' $RESPONSE_FILE)
 
-printf "\r%s\n" "$RESPONSE_TEXT"
+
+printf "\r%s\r" "$(printf '%*s' "${#STATUS_MESSAGE}" '')"
+echo "$RESPONSE_TEXT"
 
 rm -f $RESPONSE_FILE
