@@ -141,6 +141,7 @@ JSON_PAYLOAD=$(jq -Rn --arg prompt "$INSTRUCTIONS" --arg input "$QUERY" --arg ef
 )
 
 RESPONSE_FILE=$(mktemp /tmp/ask_sh_response.XXXXXX.json)
+trap 'rm -f "$RESPONSE_FILE"' EXIT
 
 printf "Thinking (%s reasoning)..." "$REASONING"
 
