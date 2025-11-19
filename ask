@@ -1,5 +1,6 @@
 #!/bin/sh
 
+ASK_URL="https://raw.githubusercontent.com/q009/ask.sh/refs/heads/main/ask"
 HOME_DIR="$HOME/.ask.sh"
 API_KEY_FILE="$HOME_DIR/api_key.txt"
 INSTRUCTIONS="You are an AI terminal assistant. Users will input simple questions and you will respond with short, precise answers and/or terminal commands. Responses should be suitable for a CLI environment, so they need to be brief, preferably single-line. Avoid any additional commentary or explanations unless explicitly asked."
@@ -54,8 +55,8 @@ install_pkgs() {
 }
 
 install() {
-    sudo cp "$0" /usr/local/bin/ask || {
-        echo "Error: Failed to copy script to /usr/local/bin/"
+    sudo curl -fsSL "$ASK_URL" -o /usr/local/bin/ask || {
+        echo "Error: Failed to download ask.sh from $ASK_URL"
         exit 1
     }
     sudo chmod +x /usr/local/bin/ask || {
