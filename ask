@@ -55,14 +55,21 @@ install_pkgs() {
 }
 
 install() {
-    sudo curl -fsSL "$ASK_URL" -o /usr/local/bin/ask || {
+    local tmpfile=$(mktemp /tmp/ask_sh_install.XXXXXX.sh)
+
+    trap 'rm -f "$tmpfile"' EXIT
+
+    curl -fsSL "$ASK_URL" -o "$tmpfile" || {
         echo "Error: Failed to download ask.sh from $ASK_URL"
+        rm -f "$tmpfile"
         exit 1
     }
-    sudo chmod +x /usr/local/bin/ask || {
-        echo "Error: Failed to set executable permissions on /usr/local/bin/ask"
+    sudo install -m 755 "$tmpfile" /usr/local/bin/ask || {
+        echo "Error: Failed to install ask.sh to /usr/local/bin/ask"
+        rm -f "$tmpfile"
         exit 1
     }
+    rm -f "$tmpfile"
 }
 
 uninstall() {
