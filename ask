@@ -5,9 +5,9 @@ RESPONSE_FILE="$HOME_DIR/response.json"
 API_KEY_FILE="$HOME_DIR/api_key.txt"
 INSTRUCTIONS="You are an AI terminal assistant. Users will input simple questions and you will respond with short, precise answers and/or terminal commands. Responses should be suitable for a CLI environment, so they need to be brief, preferably single-line. Avoid any additional commentary or explanations unless explicitly asked."
 API_KEY=$(cat $API_KEY_FILE)
-QUERY="$1"
 OS_NAME=""
 OS_KERNEL=$(uname -a)
+REASONING="minimal"
 
 case "$(uname -s)" in
     Linux*)
@@ -82,6 +82,13 @@ elif [ "$1" = "--uninstall" ]; then
     exit 0
 fi
 
+if [ "$1" = "!" ]; then
+    REASONING="medium"
+    shift
+fi
+
+QUERY="$1"
+
 # Check if curl is installed
 if ! command -v curl >/dev/null 2>&1; then
     if ! install_pkgs curl; then
@@ -119,14 +126,16 @@ INSTRUCTIONS="$INSTRUCTIONS\n\nUser is running on: $OS_NAME (kernel $OS_KERNEL)"
 # Escape QUERY for JSON
 QUERY=$(printf '%s' "$QUERY" | jq -Rsr .)
 
-JSON_PAYLOAD=$(jq -Rn --arg prompt "$INSTRUCTIONS" --arg input "$QUERY" '
+JSON_PAYLOAD=$(jq -Rn --arg prompt "$INSTRUCTIONS" --arg input "$QUERY" --arg effort "$REASONING" '
     {
         model: "gpt-5",
-        reasoning: { effort: "minimal" },
+        reasoning: { effort: $effort },
         instructions: $prompt,
         input: $input
     }'
 )
+
+echo $JSON_PAYLOAD
 
 curl https://api.openai.com/v1/responses \
     -H "Content-Type: application/json" \
