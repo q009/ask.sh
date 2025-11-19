@@ -24,7 +24,7 @@ Upon first run you'll be prompted to enter your OpenAI API key, which will be st
 ## Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/q009/ask.sh/main/ask | bash -s -- --install _
+curl -fsSL https://raw.githubusercontent.com/q009/ask.sh/main/ask | bash -s -- --install
 ```
 
 ## Update
