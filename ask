@@ -1,0 +1,139 @@
+#!/bin/sh
+
+HOME_DIR="$HOME/.ask.sh"
+RESPONSE_FILE="$HOME_DIR/response.json"
+API_KEY_FILE="$HOME_DIR/api_key.txt"
+INSTRUCTIONS="You are an AI terminal assistant. Users will input simple questions and you will respond with short, precise answers and/or terminal commands. Responses should be suitable for a CLI environment, so they need to be brief, preferably single-line. Avoid any additional commentary or explanations unless explicitly asked."
+API_KEY=$(cat $API_KEY_FILE)
+QUERY="$1"
+OS_NAME=""
+OS_KERNEL=$(uname -a)
+
+case "$(uname -s)" in
+    Linux*)
+        OS_NAME=$(. /etc/os-release; echo "Linux: $PRETTY_NAME")
+        ;;
+    Darwin*)
+        OS_NAME="macOS: $(sw_vers -productVersion)"
+        ;;
+    *)
+        OS_NAME="Unknown OS"
+        ;;
+esac
+
+install_pkgs() {
+    case "$OS_NAME" in
+        *"Ubuntu"* | *"Debian"*)
+            sudo apt update && sudo apt install -y "$@" || return 1
+            ;;
+        *"Fedora"* | *"CentOS"* | *"Red Hat"*)
+            sudo dnf install -y "$@" || return 1
+            ;;
+        *"Photon"*)
+            sudo tdnf install -y "$@" || return 1
+            ;;
+        *"openSUSE"*)
+            sudo zypper install -y "$@" || return 1
+            ;;
+        *"Arch Linux"*)
+            sudo pacman -Syu --noconfirm "$@" || return 1
+            ;;
+        *"macOS"*)
+            if ! command -v brew >/dev/null 2>&1; then
+                echo "Error: brew not found. Please install Homebrew first: https://brew.sh/"
+                return 1
+            fi
+            brew install "$@" || return 1
+            ;;
+        *)
+            echo "Error: Unsupported OS for automatic package installation"
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+install() {
+    sudo cp "$0" /usr/local/bin/ask || {
+        echo "Error: Failed to copy script to /usr/local/bin/"
+        exit 1
+    }
+    sudo chmod +x /usr/local/bin/ask || {
+        echo "Error: Failed to set executable permissions on /usr/local/bin/ask"
+        exit 1
+    }
+}
+
+uninstall() {
+    sudo rm -f /usr/local/bin/ask || {
+        echo "Error: Failed to remove /usr/local/bin/ask"
+        exit 1
+    }
+}
+
+if [ "$1" = "--install" ]; then
+    install
+    echo "ask.sh installed to /usr/local/bin/ask"
+    exit 0
+elif [ "$1" = "--uninstall" ]; then
+    uninstall
+    echo "ask.sh uninstalled from /usr/local/bin/ask"
+    exit 0
+fi
+
+# Check if curl is installed
+if ! command -v curl >/dev/null 2>&1; then
+    if ! install_pkgs curl; then
+        echo "Error: curl is not installed and automatic installation failed. Please install curl to use this script."
+        exit 1
+    fi
+fi
+
+# Check if jq is installed
+if ! command -v jq >/dev/null 2>&1; then
+    if ! install_pkgs jq; then
+        echo "Error: jq is not installed and automatic installation failed. Please install jq to use this script."
+        exit 1
+    fi
+fi
+
+# Check if has API key, if not, prompt the user
+if [ -z "$API_KEY" ]; then
+    printf "Error: No API key found. Please enter your OpenAI API key: "
+    read -r API_KEY
+    mkdir -p "$(dirname $API_KEY_FILE)"
+    echo "$API_KEY" > "$API_KEY_FILE"
+fi
+
+# Check if QUERY is provided and has more than one word, more than 16 characters
+if [ -z "$QUERY" ] || [ $(echo "$QUERY" | wc -w) -lt 3 ] || [ ${#QUERY} -le 16 ]; then
+    echo "Error: That doesn't look like a valid query (at least 3 words and more than 16 characters)."
+    exit 1
+fi
+
+mkdir -p "$(dirname $RESPONSE_FILE)"
+
+INSTRUCTIONS="$INSTRUCTIONS\n\nUser is running on: $OS_NAME (kernel $OS_KERNEL)"
+
+# Escape QUERY for JSON
+QUERY=$(printf '%s' "$QUERY" | jq -Rsr .)
+
+JSON_PAYLOAD=$(jq -Rn --arg prompt "$INSTRUCTIONS" --arg input "$QUERY" '
+    {
+        model: "gpt-5",
+        reasoning: { effort: "minimal" },
+        instructions: $prompt,
+        input: $input
+    }'
+)
+
+curl https://api.openai.com/v1/responses \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $API_KEY" \
+    -d "$JSON_PAYLOAD" \
+    -s > $RESPONSE_FILE
+
+RESPONSE_TEXT=$(jq -r '.output[] | select(.type=="message") | .content[] | select(.type=="output_text").text' $RESPONSE_FILE)
+
+echo "$RESPONSE_TEXT"
